@@ -1,0 +1,9 @@
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+*.tfvars.json
+.env.aliyun
+crash.log
+crash.*.log

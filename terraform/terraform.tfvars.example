@@ -1,0 +1,47 @@
+project_name = "libra-space"
+environment  = "prod"
+region       = "cn-beijing"
+
+# 固定到你实际购买资源的可用区；也可以留空让 Terraform 按 ECS 规格选择。
+zone_id = ""
+
+# 改成你的固定公网 IP，例如 "203.0.113.10/32"。
+admin_cidr = "<your-public-ip>/32"
+
+vpc_cidr     = "172.16.0.0/16"
+vswitch_cidr = "172.16.1.0/24"
+data_zone_id = "cn-beijing-k"
+data_vswitch_cidr = "172.16.2.0/24"
+
+# 默认自动选择最新 Alibaba Cloud Linux 3 x86_64 公共镜像；如果要固定镜像，再填写 ecs_image_id。
+ecs_image_id               = ""
+ecs_image_name_regex       = "^aliyun_3_x64_20G_alibase_.*\\.vhd$"
+ecs_instance_type          = "ecs.e-c1m2.large"
+ecs_key_pair_name          = "<existing-ecs-key-pair-name>"
+ecs_system_disk_category   = "cloud_essd"
+ecs_system_disk_size       = 40
+ecs_internet_bandwidth_out = 5
+
+acr_namespace = "<acr-namespace>"
+acr_registry  = "registry.cn-heyuan.aliyuncs.com"
+# 首次使用前需要先开通容器镜像服务 ACR；未开通时先保持 false。
+create_acr = false
+
+rds_engine_version       = "16.0"
+rds_instance_type        = "pg.n2.2c.2m"
+rds_instance_storage     = 30
+rds_storage_type         = "cloud_essd"
+rds_database_name        = "libra_space"
+rds_account_name         = "libra"
+rds_account_password     = "<strong-rds-password>"
+rds_deletion_protection  = true
+
+redis_instance_class = "redis.master.small.default"
+redis_engine_version = "5.0"
+redis_password       = "<strong-redis-password>"
+
+oss_bucket_name = "<globally-unique-oss-bucket-name>"
+oss_root_prefix = "managed"
+
+aliyun_account_id = "<aliyun-account-id>"
+sts_external_id   = "<optional-external-id>"

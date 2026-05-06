@@ -1,0 +1,37 @@
+#!/bin/sh
+
+set -eu
+
+install_docker() {
+  if command -v docker >/dev/null 2>&1; then
+    return
+  fi
+
+  if command -v yum >/dev/null 2>&1; then
+    yum install -y docker docker-compose-plugin
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y docker docker-compose-plugin
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y docker.io docker-compose-plugin
+  else
+    echo "No supported package manager found for Docker installation." >&2
+    exit 1
+  fi
+}
+
+install_docker
+systemctl enable docker
+systemctl start docker
+
+mkdir -p "/opt/${project_name}"
+
+cat > "/opt/${project_name}/README.txt" <<'EOF'
+Libra Space ECS bootstrap completed.
+
+Next steps:
+1. Copy deploy/aliyun-ecs files to this directory.
+2. Fill .env and .env.server.
+3. Log in to ACR with docker login.
+4. Run ./scripts/deploy.sh.
+EOF

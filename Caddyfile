@@ -1,0 +1,6 @@
+space.penlibra.xin {
+    encode gzip
+
+    reverse_proxy /api/* server:3000
+    reverse_proxy admin:80
+}
