@@ -97,6 +97,20 @@ echo "Syncing $out_dir to $oss_url."
   --access-key-secret "$ALICLOUD_SECRET_KEY" \
   --meta "Cache-Control:no-cache"
 
+echo "Removing OSS directory marker objects."
+(
+  cd "$out_dir"
+  find . -type d ! -name . | while IFS= read -r marker_dir; do
+    marker_key="$(printf '%s' "$marker_dir" | sed 's#^\./##')"
+    "$aliyun_cli" oss rm "$oss_url/$marker_key/" \
+      --force \
+      --region "$OSS_REGION" \
+      --endpoint "$OSS_ENDPOINT" \
+      --access-key-id "$ALICLOUD_ACCESS_KEY" \
+      --access-key-secret "$ALICLOUD_SECRET_KEY" || true
+  done
+)
+
 echo "Setting immutable cache metadata for Next.js static assets."
 "$aliyun_cli" oss set-meta "$static_url" \
   "Cache-Control:public,max-age=31536000,immutable" \
