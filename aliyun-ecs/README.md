@@ -153,7 +153,32 @@ ADMIN_IMAGE=registry.cn-heyuan.aliyuncs.com/<namespace>/libra-space-admin:<versi
 cp env.server.example .env.server
 ```
 
-填写 RDS、Tair、JWT、SMTP 等生产配置。不要把真实 `.env.server` 提交到仓库。
+填写 RDS、Tair、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
+
+微信 Native 支付需要把商户 API 证书私钥放到 ECS 的部署目录，并让容器只读挂载：
+
+```bash
+mkdir -p certs/wechat
+chmod 700 certs/wechat
+```
+
+把微信商户平台下载的 `apiclient_key.pem` 放到：
+
+```text
+deploy/aliyun-ecs/certs/wechat/apiclient_key.pem
+```
+
+对应 `.env.server` 里保持容器内路径：
+
+```env
+BILLING_WECHAT_PAY_MERCHANT_PRIVATE_KEY_PATH="/app/certs/wechat/apiclient_key.pem"
+```
+
+`BILLING_WECHAT_PAY_NOTIFY_URL` 必须是公网 HTTPS 地址，例如：
+
+```env
+BILLING_WECHAT_PAY_NOTIFY_URL="https://space.penlibra.xin/api/billing/webhooks/wechat"
+```
 
 执行发布：
 

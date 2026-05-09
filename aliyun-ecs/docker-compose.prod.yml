@@ -23,6 +23,8 @@ services:
       PORT: 3000
     expose:
       - "3000"
+    volumes:
+      - ./certs/wechat:/app/certs/wechat:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
       interval: 10s
