@@ -47,13 +47,13 @@ variable "vswitch_cidr" {
 
 variable "data_zone_id" {
   type        = string
-  description = "Zone ID for RDS and Redis. Keep it separate from the ECS zone to avoid ECS-oriented zone selection issues."
+  description = "Zone ID for Redis. Keep it separate from the ECS zone to avoid ECS-oriented zone selection issues."
   default     = "cn-beijing-k"
 }
 
 variable "data_vswitch_cidr" {
   type        = string
-  description = "VSwitch CIDR block for RDS and Redis."
+  description = "VSwitch CIDR block for Redis."
   default     = "172.16.2.0/24"
 }
 
@@ -120,54 +120,6 @@ variable "acr_registry" {
 variable "create_acr" {
   type        = bool
   description = "Create ACR namespace and repositories. Set to false until Container Registry is activated for the account."
-  default     = true
-}
-
-variable "rds_engine_version" {
-  type        = string
-  description = "RDS PostgreSQL engine version."
-  default     = "13.0"
-}
-
-variable "rds_instance_type" {
-  type        = string
-  description = "RDS PostgreSQL instance type."
-  default     = "pg.n2.2c.2m"
-}
-
-variable "rds_instance_storage" {
-  type        = number
-  description = "RDS storage size in GiB."
-  default     = 30
-}
-
-variable "rds_storage_type" {
-  type        = string
-  description = "RDS storage type."
-  default     = "cloud_essd"
-}
-
-variable "rds_database_name" {
-  type        = string
-  description = "Application database name."
-  default     = "libra_space"
-}
-
-variable "rds_account_name" {
-  type        = string
-  description = "Application database account name."
-  default     = "libra"
-}
-
-variable "rds_account_password" {
-  type        = string
-  description = "Application database account password. Stored in Terraform state."
-  sensitive   = true
-}
-
-variable "rds_deletion_protection" {
-  type        = bool
-  description = "Enable RDS deletion protection."
   default     = true
 }
 

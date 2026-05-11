@@ -3,6 +3,7 @@
 terraform.tfstate
 terraform.tfstate.*
 *.tfvars
+*.tfvars.*
 *.tfvars.json
 .env.aliyun
 crash.log

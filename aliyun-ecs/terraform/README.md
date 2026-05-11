@@ -4,7 +4,6 @@
 
 - VPC、VSwitch、安全组。
 - 可选创建 ACR 命名空间和 `libra-space-server` / `libra-space-admin` 私有仓库。
-- RDS PostgreSQL 实例、数据库、应用账号和读写授权。
 - Tair/Redis 实例。
 - OSS Bucket、私有 ACL、服务端加密。
 - 用于平台托管 OSS 临时凭证的 RAM Role 和 OSS 权限策略。
@@ -13,7 +12,7 @@
 ## 前置条件
 
 1. 本机或 Cloud Shell 已安装 Terraform。
-2. 当前身份有创建 ECS、VPC、RDS、Tair/Redis、OSS、RAM 资源的权限；如果 `create_acr = true`，还需要 ACR 权限。
+2. 当前身份有创建 ECS、VPC、Tair/Redis、OSS、RAM 资源的权限；如果 `create_acr = true`，还需要 ACR 权限。
 3. 已在 ACR 控制台设置镜像仓库登录密码。当前建议复用已有河源个人版 ACR，并保持 `create_acr = false`。
 4. 已准备 ECS Key Pair，优先不要使用 ECS 密码。
 
@@ -27,7 +26,7 @@ cp terraform.tfvars.example terraform.tfvars
 
 - `*.tfvars` 已被 `.gitignore` 忽略，不要提交真实值。
 - `.env.aliyun` 已被 `.gitignore` 忽略，可用于保存本机 Terraform 访问凭证。
-- `rds_account_password`、`redis_password`、可选的 `ecs_password` 会进入 Terraform state。生产环境建议把 state 放到受控 OSS backend，并开启最小权限访问。
+- `redis_password`、可选的 `ecs_password` 会进入 Terraform state。生产环境建议把 state 放到受控 OSS backend，并开启最小权限访问。
 - `admin_cidr` 必须改成你的固定公网 IP，避免把 SSH 和调试端口暴露给全网。
 - `ecs_image_id` 可以留空，Terraform 会按 `ecs_image_name_regex` 自动选择最新的 Alibaba Cloud Linux 3 x86_64 公共镜像。
 
@@ -65,10 +64,10 @@ ALICLOUD_REGION="cn-beijing"
 terraform output
 ```
 
-把输出里的模板值写入 ECS 上的 `deploy/aliyun-ecs/.env.server`：
+PostgreSQL 由 ECS 上的 Docker Compose 自建，数据库账号写在 ECS 部署目录的 `.env.postgres`。把输出里的模板值写入 ECS 上的 `deploy/aliyun-ecs/.env.server`：
 
 ```env
-DATABASE_URL="postgresql://libra:<password>@<rds-connection-string>:5432/libra_space?schema=public"
+DATABASE_URL="postgresql://libra:<postgres-password>@postgres:5432/libra_space?schema=public"
 REDIS_URL="redis://:<password>@<redis-connection-domain>:6379"
 ```
 

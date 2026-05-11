@@ -107,46 +107,6 @@ resource "alicloud_cr_repo" "app" {
   detail    = "Libra Space ${each.value} image repository."
 }
 
-resource "alicloud_rds_service_linked_role" "postgres" {
-  service_name = "AliyunServiceRoleForRdsPgsqlOnEcs"
-}
-
-resource "alicloud_db_instance" "postgres" {
-  engine                   = "PostgreSQL"
-  engine_version           = var.rds_engine_version
-  instance_type            = var.rds_instance_type
-  instance_storage         = var.rds_instance_storage
-  db_instance_storage_type = var.rds_storage_type
-  instance_charge_type     = "Postpaid"
-  instance_name            = "${local.prefix}-postgres"
-  vswitch_id               = alicloud_vswitch.data.id
-  security_ips             = [var.vswitch_cidr]
-  deletion_protection      = var.rds_deletion_protection
-  tags                     = local.tags
-
-  depends_on = [
-    alicloud_rds_service_linked_role.postgres,
-  ]
-}
-
-resource "alicloud_db_database" "app" {
-  instance_id    = alicloud_db_instance.postgres.id
-  data_base_name = var.rds_database_name
-}
-
-resource "alicloud_db_account" "app" {
-  db_instance_id   = alicloud_db_instance.postgres.id
-  account_name     = var.rds_account_name
-  account_password = var.rds_account_password
-}
-
-resource "alicloud_db_account_privilege" "app" {
-  instance_id  = alicloud_db_instance.postgres.id
-  account_name = alicloud_db_account.app.account_name
-  privilege    = "DBOwner"
-  db_names     = [alicloud_db_database.app.data_base_name]
-}
-
 resource "alicloud_kvstore_instance" "redis" {
   db_instance_name = "${local.prefix}-redis"
   payment_type     = "PostPaid"

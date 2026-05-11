@@ -38,9 +38,9 @@ output "admin_image_template" {
   value       = "${local.acr_registry}/${var.acr_namespace}/libra-space-admin:<version>"
 }
 
-output "database_url_template" {
-  description = "DATABASE_URL template. Replace <password> before writing .env.server."
-  value       = "postgresql://${alicloud_db_account.app.account_name}:<password>@${alicloud_db_instance.postgres.connection_string}:5432/${alicloud_db_database.app.data_base_name}?schema=public"
+output "local_postgres_database_url_template" {
+  description = "Compose-local PostgreSQL DATABASE_URL template. Replace <password> with .env.postgres POSTGRES_PASSWORD."
+  value       = "postgresql://libra:<password>@postgres:5432/libra_space?schema=public"
 }
 
 output "redis_url_template" {

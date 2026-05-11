@@ -4,7 +4,7 @@
 
 - 云资源由 Terraform/ROS 创建和更新。
 - 镜像由本地或 CI 构建后推送到 ACR。
-- ECS 只运行应用容器，不自建 PostgreSQL 和 Redis。
+- ECS 运行应用容器和自建 PostgreSQL；Redis/Tair、OSS 仍使用云托管服务。
 - 数据库迁移用一次性容器执行，成功后再启动 `server`。
 
 ## 云资源
@@ -13,10 +13,9 @@
 
 1. VPC、交换机、安全组。
 2. ACR 企业版或个人版镜像仓库。当前采用方案 A：继续使用已有河源个人版 ACR，北京 ECS 跨地域拉取镜像。
-3. RDS PostgreSQL。
-4. Tair/Redis。
-5. OSS Bucket。
-6. ECS，安装 Docker 和 Docker Compose 插件。
+3. Tair/Redis。
+4. OSS Bucket。
+5. ECS，安装 Docker 和 Docker Compose 插件。
 
 安全组只暴露必要端口：
 
@@ -24,21 +23,21 @@
 - `22`：仅允许你的固定 IP 访问。
 - `3000` / `8080`：不作为正式公网入口；调试期才按需开放。
 
-RDS、Tair、OSS 访问优先使用同 VPC 内网地址。
+Tair/Redis、OSS 访问优先使用同 VPC 内网地址。PostgreSQL 只在 ECS Docker 网络内暴露，不开放公网端口。
 
 ## 成本策略
 
-测试阶段可以使用按量付费，便于随时调整规格和释放资源。进入长期运行或正式上线前，应复核 ECS、RDS、Tair/Redis 等稳定负载资源的计费方式，优先切换为包年包月或合适的节省计划，避免长期按量计费造成不必要成本。
+测试阶段可以使用按量付费，便于随时调整规格和释放资源。进入长期运行或正式上线前，应复核 ECS、Tair/Redis 等稳定负载资源的计费方式，优先切换为包年包月或合适的节省计划，避免长期按量计费造成不必要成本。
 
 切换前确认：
 
 - 规格、地域、可用区和磁盘容量已经稳定。
 - 近期没有迁移到 ACK、多副本或更大规格的计划。
-- RDS/Tair 的备份、存储和公网流量成本已经单独核算。
+- ECS 磁盘、PostgreSQL OSS 备份、Tair/Redis 的备份、存储和公网流量成本已经单独核算。
 
 ## 未来扩容路线
 
-当前方案定位为单机生产早期形态：ECS 运行 `server`、`admin`、`proxy` 容器，PostgreSQL、Redis/Tair、OSS 使用云托管服务。这个架构可以平滑支撑早期上线，但扩容应按阶段推进。
+当前方案定位为单机生产早期形态：ECS 运行 `postgres`、`server`、`admin`、`proxy` 容器，Redis/Tair、OSS 使用云托管服务。这个架构成本低、改动少，但 PostgreSQL 和应用同机运行，扩容应按阶段推进。
 
 ### 阶段 1：单机纵向扩容
 
@@ -47,7 +46,7 @@ RDS、Tair、OSS 访问优先使用同 VPC 内网地址。
 操作方向：
 
 - 升级 ECS CPU、内存和系统盘规格。
-- 升级 RDS PostgreSQL 规格、连接数、IOPS 和存储空间。
+- 按数据库增长情况扩容 ECS 磁盘，并确认 OSS 备份可恢复。
 - 升级 Tair/Redis 规格。
 - 继续使用当前 Docker Compose 部署方式。
 
@@ -63,7 +62,7 @@ RDS、Tair、OSS 访问优先使用同 VPC 内网地址。
 - 多台 ECS 运行 `server` 容器。
 - `admin` 静态资源迁移到 OSS + CDN，或保留独立静态服务。
 - Caddy 不再作为唯一公网入口；可以移除，或仅作为单机内部反代。
-- 所有 `server` 实例共享同一套 RDS、Tair/Redis、OSS。
+- 多 ECS 后应迁到托管 PostgreSQL 或独立数据库主机，所有 `server` 实例共享同一套 PostgreSQL、Tair/Redis、OSS。
 
 改造点：
 
@@ -153,7 +152,33 @@ ADMIN_IMAGE=registry.cn-heyuan.aliyuncs.com/<namespace>/libra-space-admin:<versi
 cp env.server.example .env.server
 ```
 
-填写 RDS、Tair、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
+填写 Compose 本地 PostgreSQL、Tair、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
+
+准备 PostgreSQL 运行变量：
+
+```bash
+cp env.postgres.example .env.postgres
+chmod 600 .env.postgres
+```
+
+`.env.server` 里的 `DATABASE_URL` 使用 Compose 服务名 `postgres`：
+
+```env
+DATABASE_URL="postgresql://libra:<postgres-password>@postgres:5432/libra_space?schema=public"
+```
+
+准备 PostgreSQL 到 OSS 的自动备份配置：
+
+```bash
+cp env.postgres-backup.example .env.postgres-backup
+chmod 600 .env.postgres-backup
+```
+
+在 ECS 上给备份脚本配置 `aliyun` profile 后，加入 crontab：
+
+```bash
+17 3 * * * /opt/libra-space/scripts/backup-postgres-to-oss.sh >> /opt/libra-space/backups/postgres/backup.log 2>&1
+```
 
 微信 Native 支付需要把商户 API 证书私钥放到 ECS 的部署目录，并让容器只读挂载：
 
@@ -195,7 +220,7 @@ curl -fsS http://127.0.0.1/api/health
 ## 数据库升级原则
 
 - 生产环境只执行 `prisma migrate deploy`。
-- 每次迁移前先创建 RDS 手动快照或确认自动备份可恢复。
+- 每次迁移前先执行 `./scripts/backup-postgres-to-oss.sh`，确认 OSS 备份可恢复。
 - 禁止多个 server 副本在启动时并发执行迁移。
 - 回滚优先回滚应用镜像；数据库结构回滚只在事故恢复时处理。
 - 破坏性 schema 变更按 expand/contract 分两次发布。
@@ -206,7 +231,6 @@ Terraform/ROS 只管理云资源，不直接管理应用版本：
 
 - VPC、交换机、安全组。
 - ACR 仓库。
-- RDS 实例、账号、数据库、白名单。
 - Tair/Redis 实例、白名单。
 - OSS Bucket、RAM Role、STS 授权策略。
 - ECS 实例和初始化脚本。
