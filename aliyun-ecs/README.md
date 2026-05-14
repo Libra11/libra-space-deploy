@@ -4,7 +4,7 @@
 
 - 云资源由 Terraform/ROS 创建和更新。
 - 镜像由本地或 CI 构建后推送到 ACR。
-- ECS 运行应用容器和自建 PostgreSQL；Redis/Tair、OSS 仍使用云托管服务。
+- ECS 运行应用容器和自建 PostgreSQL；OSS 使用云托管服务。
 - 数据库迁移用一次性容器执行，成功后再启动 `server`。
 
 ## 云资源
@@ -13,9 +13,8 @@
 
 1. VPC、交换机、安全组。
 2. ACR 企业版或个人版镜像仓库。当前采用方案 A：继续使用已有河源个人版 ACR，北京 ECS 跨地域拉取镜像。
-3. Tair/Redis。
-4. OSS Bucket。
-5. ECS，安装 Docker 和 Docker Compose 插件。
+3. OSS Bucket。
+4. ECS，安装 Docker 和 Docker Compose 插件。
 
 安全组只暴露必要端口：
 
@@ -23,21 +22,21 @@
 - `22`：仅允许你的固定 IP 访问。
 - `3000` / `8080`：不作为正式公网入口；调试期才按需开放。
 
-Tair/Redis、OSS 访问优先使用同 VPC 内网地址。PostgreSQL 只在 ECS Docker 网络内暴露，不开放公网端口。
+OSS 访问优先使用同地域端点。PostgreSQL 只在 ECS Docker 网络内暴露，不开放公网端口。
 
 ## 成本策略
 
-测试阶段可以使用按量付费，便于随时调整规格和释放资源。进入长期运行或正式上线前，应复核 ECS、Tair/Redis 等稳定负载资源的计费方式，优先切换为包年包月或合适的节省计划，避免长期按量计费造成不必要成本。
+测试阶段可以使用按量付费，便于随时调整规格和释放资源。进入长期运行或正式上线前，应复核 ECS 等稳定负载资源的计费方式，优先切换为包年包月或合适的节省计划，避免长期按量计费造成不必要成本。
 
 切换前确认：
 
 - 规格、地域、可用区和磁盘容量已经稳定。
 - 近期没有迁移到 ACK、多副本或更大规格的计划。
-- ECS 磁盘、PostgreSQL OSS 备份、Tair/Redis 的备份、存储和公网流量成本已经单独核算。
+- ECS 磁盘、PostgreSQL OSS 备份、对象存储和公网流量成本已经单独核算。
 
 ## 未来扩容路线
 
-当前方案定位为单机生产早期形态：ECS 运行 `postgres`、`server`、`admin`、`proxy` 容器，Redis/Tair、OSS 使用云托管服务。这个架构成本低、改动少，但 PostgreSQL 和应用同机运行，扩容应按阶段推进。
+当前方案定位为单机生产早期形态：ECS 运行 `postgres`、`server`、`admin`、`proxy` 容器，OSS 使用云托管服务。这个架构成本低、改动少，但 PostgreSQL 和应用同机运行，扩容应按阶段推进。
 
 ### 阶段 1：单机纵向扩容
 
@@ -47,7 +46,6 @@ Tair/Redis、OSS 访问优先使用同 VPC 内网地址。PostgreSQL 只在 ECS 
 
 - 升级 ECS CPU、内存和系统盘规格。
 - 按数据库增长情况扩容 ECS 磁盘，并确认 OSS 备份可恢复。
-- 升级 Tair/Redis 规格。
 - 继续使用当前 Docker Compose 部署方式。
 
 优点是改动最小；缺点是仍然存在单 ECS 故障点。
@@ -62,12 +60,12 @@ Tair/Redis、OSS 访问优先使用同 VPC 内网地址。PostgreSQL 只在 ECS 
 - 多台 ECS 运行 `server` 容器。
 - `admin` 静态资源迁移到 OSS + CDN，或保留独立静态服务。
 - Caddy 不再作为唯一公网入口；可以移除，或仅作为单机内部反代。
-- 多 ECS 后应迁到托管 PostgreSQL 或独立数据库主机，所有 `server` 实例共享同一套 PostgreSQL、Tair/Redis、OSS。
+- 多 ECS 后应迁到托管 PostgreSQL 或独立数据库主机，所有 `server` 实例共享同一套 PostgreSQL、OSS；如果引入分布式限流或缓存，再增加 Redis/Tair。
 
 改造点：
 
 - 当前 `server` 基本无状态，认证会话、业务数据已经在数据库或 OSS，适合横向扩展。
-- 限流当前使用 `@nestjs/throttler` 默认内存存储，多实例下只能按单实例计数。扩展到多 ECS 前，应改为 Redis/Tair 存储。
+- 限流当前使用 `@nestjs/throttler` 默认内存存储，多实例下只能按单实例计数。扩展到多 ECS 前，应改为共享存储实现，例如 Redis/Tair。
 - `.env.server` 不应继续手工复制到每台 ECS，建议改为自动化分发或接入云密钥管理。
 - 数据库迁移继续保持一次性任务，只允许单实例执行 `prisma migrate deploy`。
 
@@ -152,7 +150,7 @@ ADMIN_IMAGE=registry.cn-heyuan.aliyuncs.com/<namespace>/libra-space-admin:<versi
 cp env.server.example .env.server
 ```
 
-填写 Compose 本地 PostgreSQL、Tair、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
+填写 Compose 本地 PostgreSQL、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
 
 准备 PostgreSQL 运行变量：
 
@@ -231,7 +229,6 @@ Terraform/ROS 只管理云资源，不直接管理应用版本：
 
 - VPC、交换机、安全组。
 - ACR 仓库。
-- Tair/Redis 实例、白名单。
 - OSS Bucket、RAM Role、STS 授权策略。
 - ECS 实例和初始化脚本。
 

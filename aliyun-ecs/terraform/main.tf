@@ -107,20 +107,6 @@ resource "alicloud_cr_repo" "app" {
   detail    = "Libra Space ${each.value} image repository."
 }
 
-resource "alicloud_kvstore_instance" "redis" {
-  db_instance_name = "${local.prefix}-redis"
-  payment_type     = "PostPaid"
-  instance_type    = "Redis"
-  engine_version   = var.redis_engine_version
-  instance_class   = var.redis_instance_class
-  zone_id          = var.data_zone_id
-  vswitch_id       = alicloud_vswitch.data.id
-  password         = var.redis_password
-  security_ips     = [var.vswitch_cidr]
-  vpc_auth_mode    = "Open"
-  tags             = local.tags
-}
-
 resource "alicloud_oss_bucket" "managed_storage" {
   bucket        = var.oss_bucket_name
   storage_class = "Standard"
@@ -221,6 +207,8 @@ resource "alicloud_instance" "app" {
   availability_zone          = local.zone_id
   security_groups            = [alicloud_security_group.ecs.id]
   instance_type              = var.ecs_instance_type
+  instance_charge_type       = "PrePaid"
+  period_unit                = "Month"
   system_disk_category       = var.ecs_system_disk_category
   system_disk_size           = var.ecs_system_disk_size
   image_id                   = data.alicloud_images.ecs.images[0].id
@@ -234,4 +222,11 @@ resource "alicloud_instance" "app" {
     project_name = var.project_name
   }))
   tags = local.tags
+
+  lifecycle {
+    ignore_changes = [
+      force_delete,
+      include_data_disks,
+    ]
+  }
 }

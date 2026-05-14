@@ -47,13 +47,13 @@ variable "vswitch_cidr" {
 
 variable "data_zone_id" {
   type        = string
-  description = "Zone ID for Redis. Keep it separate from the ECS zone to avoid ECS-oriented zone selection issues."
+  description = "Reserved data subnet zone ID. Keep it separate from the ECS-oriented zone selection."
   default     = "cn-beijing-k"
 }
 
 variable "data_vswitch_cidr" {
   type        = string
-  description = "VSwitch CIDR block for Redis."
+  description = "Reserved data VSwitch CIDR block."
   default     = "172.16.2.0/24"
 }
 
@@ -121,24 +121,6 @@ variable "create_acr" {
   type        = bool
   description = "Create ACR namespace and repositories. Set to false until Container Registry is activated for the account."
   default     = true
-}
-
-variable "redis_instance_class" {
-  type        = string
-  description = "Tair/Redis instance class."
-  default     = "redis.master.small.default"
-}
-
-variable "redis_engine_version" {
-  type        = string
-  description = "Tair/Redis engine version."
-  default     = "5.0"
-}
-
-variable "redis_password" {
-  type        = string
-  description = "Tair/Redis password. Stored in Terraform state."
-  sensitive   = true
 }
 
 variable "oss_bucket_name" {

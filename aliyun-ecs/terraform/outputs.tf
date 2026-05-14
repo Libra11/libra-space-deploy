@@ -43,11 +43,6 @@ output "local_postgres_database_url_template" {
   value       = "postgresql://libra:<password>@postgres:5432/libra_space?schema=public"
 }
 
-output "redis_url_template" {
-  description = "REDIS_URL template. Replace <password> before writing .env.server."
-  value       = "redis://:<password>@${alicloud_kvstore_instance.redis.connection_domain}:6379"
-}
-
 output "oss_bucket" {
   description = "Managed OSS bucket."
   value       = alicloud_oss_bucket.managed_storage.bucket
