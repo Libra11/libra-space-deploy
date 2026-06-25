@@ -223,6 +223,159 @@ curl -fsS http://127.0.0.1/api/health
 - 回滚优先回滚应用镜像；数据库结构回滚只在事故恢复时处理。
 - 破坏性 schema 变更按 expand/contract 分两次发布。
 
+## 停机迁移 PostgreSQL 到 RDS/独立数据库
+
+本项目当前生产形态是 ECS 内 Docker Compose 自建 PostgreSQL。迁移到 RDS PostgreSQL 或独立数据库主机时，优先采用停机迁移：暂停公网服务、做最终备份、恢复到新库、切换 `DATABASE_URL`、验证后再恢复公网入口。
+
+这个方案简单、可控，适合允许几分钟到几十分钟维护窗口的阶段。迁移期间不要让旧库和新库同时接受写入。
+
+### 迁移前准备
+
+1. 创建目标 PostgreSQL，版本优先选择与当前 Compose 镜像一致的 PostgreSQL 16。
+2. 目标数据库放在同 VPC 或可被 ECS 内网访问的网络内，安全组只允许 ECS 内网 IP 访问数据库端口。
+3. 在目标 PostgreSQL 里创建空数据库和应用账号，例如数据库名仍为 `libra_space`，账号仍为 `libra`。
+4. 确认目标库字符集、时区和连接上限满足应用需要。
+5. 确认 ECS 上的 `deploy/aliyun-ecs/.env.postgres-backup` 已可把备份上传到 OSS。
+6. 提前记录当前 `SERVER_IMAGE`、`ADMIN_IMAGE` 和 `.env.server`，用于回滚。
+
+在 ECS 上进入部署目录：
+
+```bash
+cd "/opt/libra-space"
+```
+
+先做一次非停机演练备份，确认备份链路可用：
+
+```bash
+./scripts/backup-postgres-to-oss.sh
+ls -lh "backups/postgres"
+```
+
+准备目标数据库连接配置。该文件只用于迁移恢复，不提交仓库：
+
+```bash
+cat > ".env.rds-restore" <<'EOF'
+PGHOST=<rds-internal-host>
+PGPORT=5432
+PGDATABASE=libra_space
+PGUSER=libra
+PGPASSWORD=<rds-password>
+EOF
+chmod 600 ".env.rds-restore"
+```
+
+验证 ECS 能访问目标数据库：
+
+```bash
+docker run --rm \
+  --env-file ".env.rds-restore" \
+  "docker.m.daocloud.io/library/postgres:16-alpine" \
+  sh -lc 'psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c "select version();"'
+```
+
+### 停机窗口操作
+
+暂停公网服务，保留本机 PostgreSQL 继续运行，避免迁移期间产生新写入：
+
+```bash
+docker compose -f "docker-compose.prod.yml" stop "proxy" "admin" "server"
+docker compose -f "docker-compose.prod.yml" ps
+```
+
+做最终备份。这个备份是迁移基准，后续恢复和回滚都以它为准：
+
+```bash
+./scripts/backup-postgres-to-oss.sh
+latest_dump="$(ls -t "backups/postgres"/libra_space-*.dump | head -n 1)"
+dump_name="$(basename "$latest_dump")"
+printf 'Using dump: %s\n' "$latest_dump"
+```
+
+把最终备份恢复到目标数据库。目标库应是空库；如果不是空库，下面命令会清理同名对象后恢复：
+
+```bash
+docker run --rm \
+  --env-file ".env.rds-restore" \
+  -e "DUMP_FILE=/backups/$dump_name" \
+  -v "$PWD/backups/postgres:/backups:ro" \
+  "docker.m.daocloud.io/library/postgres:16-alpine" \
+  sh -lc 'pg_restore --clean --if-exists --no-owner --no-privileges -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" "$DUMP_FILE"'
+```
+
+恢复后做基础校验：
+
+```bash
+docker run --rm \
+  --env-file ".env.rds-restore" \
+  "docker.m.daocloud.io/library/postgres:16-alpine" \
+  sh -lc 'psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c "select count(*) as users from \"User\";"'
+```
+
+备份当前服务配置，然后把 `.env.server` 里的 `DATABASE_URL` 改为目标数据库内网地址：
+
+```bash
+cp ".env.server" ".env.server.before-rds-$(date +%Y%m%d%H%M%S)"
+vi ".env.server"
+```
+
+示例：
+
+```env
+DATABASE_URL="postgresql://libra:<rds-password>@<rds-internal-host>:5432/libra_space?schema=public"
+```
+
+对目标库执行 Prisma 迁移，确保目标库 schema 与当前应用版本一致：
+
+```bash
+docker compose -f "docker-compose.prod.yml" up --no-deps --force-recreate --abort-on-container-exit "migrate"
+```
+
+先只启动 `server`，在公网入口恢复前做容器内健康检查：
+
+```bash
+docker compose -f "docker-compose.prod.yml" up -d --force-recreate "server"
+docker compose -f "docker-compose.prod.yml" exec -T "server" wget -qO- "http://127.0.0.1:3000/api/health"
+```
+
+确认健康检查通过后，再恢复后台和公网入口：
+
+```bash
+docker compose -f "docker-compose.prod.yml" up -d --force-recreate "admin" "proxy"
+curl -fsS "http://127.0.0.1/api/health"
+```
+
+最后检查核心业务：
+
+- 管理后台登录。
+- 普通用户登录和刷新 token。
+- 客户端同步 workspace heads、上传同步索引、拉取变更。
+- 会员套餐和订单列表。
+- 平台托管 OSS 临时凭证签发。
+
+### 迁移后的收尾
+
+迁移完成后，旧的 Compose PostgreSQL 先保留一段时间，不要立刻删除 `postgres_data` volume。建议至少保留 7 到 14 天，确认新库稳定后再清理。
+
+当前 `docker-compose.prod.yml` 仍包含本机 `postgres` 服务和 `depends_on` 关系。第一阶段迁移只切换 `DATABASE_URL`，本机 PostgreSQL 保留为临时回滚点；稳定后再单独改 Compose，移除 `postgres` 服务和相关依赖。
+
+迁移后应调整备份策略：
+
+- 如果使用 RDS，开启 RDS 自动备份、日志备份和保留周期。
+- 保留应用侧 OSS 备份脚本作为额外灾备时，需要改成从目标数据库导出，而不是从 Compose `postgres` 容器导出。
+- 定期做恢复演练，验证备份能恢复出可用数据库。
+
+### 回滚边界
+
+如果在恢复公网入口前发现问题，可以直接回滚到旧库：
+
+```bash
+cp ".env.server.before-rds-<timestamp>" ".env.server"
+docker compose -f "docker-compose.prod.yml" up -d --force-recreate "server" "admin" "proxy"
+curl -fsS "http://127.0.0.1/api/health"
+```
+
+如果公网入口已经恢复且用户已经在新库产生写入，不要直接把 `DATABASE_URL` 指回旧库，否则会丢失新写入。此时应再次进入维护窗口，先评估新库写入差异，再决定数据补偿或继续修复新库。
+
 ## Terraform/ROS 分工
 
 Terraform/ROS 只管理云资源，不直接管理应用版本：
