@@ -30,9 +30,3 @@ create_acr = false
 redis_instance_class = "redis.master.small.default"
 redis_engine_version = "5.0"
 redis_password       = "<strong-redis-password>"
-
-oss_bucket_name = "<globally-unique-oss-bucket-name>"
-oss_root_prefix = "managed"
-
-aliyun_account_id = "<aliyun-account-id>"
-sts_external_id   = "<optional-external-id>"

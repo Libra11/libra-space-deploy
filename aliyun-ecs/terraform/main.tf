@@ -49,7 +49,7 @@ resource "alicloud_vswitch" "data" {
 
 resource "alicloud_security_group" "ecs" {
   security_group_name = "${local.prefix}-ecs-sg"
-  description         = "Security group for Libra Space ECS."
+  description         = "Security group for Knora One ECS."
   vpc_id              = alicloud_vpc.main.id
 }
 
@@ -104,103 +104,7 @@ resource "alicloud_cr_repo" "app" {
   name      = each.value
   summary   = each.value
   repo_type = "PRIVATE"
-  detail    = "Libra Space ${each.value} image repository."
-}
-
-resource "alicloud_oss_bucket" "managed_storage" {
-  bucket        = var.oss_bucket_name
-  storage_class = "Standard"
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes = [
-      server_side_encryption_rule,
-    ]
-  }
-}
-
-resource "alicloud_oss_bucket_acl" "managed_storage" {
-  bucket = alicloud_oss_bucket.managed_storage.bucket
-  acl    = "private"
-}
-
-resource "alicloud_oss_bucket_server_side_encryption" "managed_storage" {
-  bucket        = alicloud_oss_bucket.managed_storage.bucket
-  sse_algorithm = "AES256"
-}
-
-resource "alicloud_ram_role" "managed_storage_sts" {
-  role_name   = "${local.prefix}-oss-sts"
-  description = "Role assumed by Libra Space server to issue scoped OSS STS credentials."
-  force       = true
-  assume_role_policy_document = jsonencode({
-    Version = "1"
-    Statement = [
-      merge({
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
-        Principal = {
-          RAM = [
-            "acs:ram::${var.aliyun_account_id}:root"
-          ]
-        }
-        }, var.sts_external_id == "" ? {} : {
-        Condition = {
-          StringEquals = {
-            "sts:ExternalId" = var.sts_external_id
-          }
-        }
-      })
-    ]
-  })
-}
-
-resource "alicloud_ram_policy" "managed_storage_oss" {
-  policy_name = "${local.prefix}-managed-oss"
-  policy_document = jsonencode({
-    Version = "1"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "oss:ListObjects"
-        ]
-        Resource = [
-          "acs:oss:*:*:${alicloud_oss_bucket.managed_storage.bucket}"
-        ]
-        Condition = {
-          StringLike = {
-            "oss:Prefix" = [
-              var.oss_root_prefix,
-              "${var.oss_root_prefix}/*"
-            ]
-          }
-        }
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "oss:GetObject",
-          "oss:GetObjectMeta",
-          "oss:PutObject",
-          "oss:DeleteObject",
-          "oss:AbortMultipartUpload",
-          "oss:ListParts"
-        ]
-        Resource = [
-          "acs:oss:*:*:${alicloud_oss_bucket.managed_storage.bucket}/${var.oss_root_prefix}/*"
-        ]
-      }
-    ]
-  })
-  description = "Managed OSS permissions for Libra Space user object prefixes."
-  force       = true
-}
-
-resource "alicloud_ram_role_policy_attachment" "managed_storage_oss" {
-  role_name   = alicloud_ram_role.managed_storage_sts.role_name
-  policy_name = alicloud_ram_policy.managed_storage_oss.policy_name
-  policy_type = alicloud_ram_policy.managed_storage_oss.type
+  detail    = "Knora One ${each.value} image repository."
 }
 
 resource "alicloud_instance" "app" {

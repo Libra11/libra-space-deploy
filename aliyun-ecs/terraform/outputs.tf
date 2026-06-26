@@ -42,28 +42,3 @@ output "local_postgres_database_url_template" {
   description = "Compose-local PostgreSQL DATABASE_URL template. Replace <password> with .env.postgres POSTGRES_PASSWORD."
   value       = "postgresql://libra:<password>@postgres:5432/libra_space?schema=public"
 }
-
-output "oss_bucket" {
-  description = "Managed OSS bucket."
-  value       = alicloud_oss_bucket.managed_storage.bucket
-}
-
-output "oss_endpoint" {
-  description = "Managed OSS public endpoint for the selected region."
-  value       = "https://oss-${var.region}.aliyuncs.com"
-}
-
-output "oss_region" {
-  description = "Managed OSS region value used by the application."
-  value       = "oss-${var.region}"
-}
-
-output "managed_storage_sts_role_arn" {
-  description = "Role ARN to save in the admin managed-storage settings."
-  value       = alicloud_ram_role.managed_storage_sts.arn
-}
-
-output "managed_storage_root_prefix" {
-  description = "Root prefix to save in the admin managed-storage settings."
-  value       = var.oss_root_prefix
-}

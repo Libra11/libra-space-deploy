@@ -122,25 +122,3 @@ variable "create_acr" {
   description = "Create ACR namespace and repositories. Set to false until Container Registry is activated for the account."
   default     = true
 }
-
-variable "oss_bucket_name" {
-  type        = string
-  description = "OSS bucket name. Must be globally unique."
-}
-
-variable "oss_root_prefix" {
-  type        = string
-  description = "Root prefix for managed OSS objects."
-  default     = "managed"
-}
-
-variable "aliyun_account_id" {
-  type        = string
-  description = "Alibaba Cloud account ID used as the trusted principal for the managed OSS STS role."
-}
-
-variable "sts_external_id" {
-  type        = string
-  description = "Optional STS ExternalId to require when assuming the managed OSS role."
-  default     = ""
-}

@@ -4,14 +4,12 @@
 
 - VPC、VSwitch、安全组。
 - 可选创建 ACR 命名空间和 `libra-space-server` / `libra-space-admin` 私有仓库。
-- OSS Bucket、私有 ACL、服务端加密。
-- 用于平台托管 OSS 临时凭证的 RAM Role 和 OSS 权限策略。
 - ECS 实例，并通过 cloud-init 安装 Docker 和 Docker Compose 插件。
 
 ## 前置条件
 
 1. 本机或 Cloud Shell 已安装 Terraform。
-2. 当前身份有创建 ECS、VPC、OSS、RAM 资源的权限；如果 `create_acr = true`，还需要 ACR 权限。
+2. 当前身份有创建 ECS、VPC 资源的权限；如果 `create_acr = true`，还需要 ACR 权限。
 3. 已在 ACR 控制台设置镜像仓库登录密码。当前建议复用已有河源个人版 ACR，并保持 `create_acr = false`。
 4. 已准备 ECS Key Pair，优先不要使用 ECS 密码。
 
@@ -68,16 +66,6 @@ PostgreSQL 由 ECS 上的 Docker Compose 自建，数据库账号写在 ECS 部�
 ```env
 DATABASE_URL="postgresql://libra:<postgres-password>@postgres:5432/libra_space?schema=public"
 ```
-
-平台托管 OSS 的后台配置使用这些输出：
-
-- `oss_endpoint`
-- `oss_bucket`
-- `oss_region`
-- `managed_storage_sts_role_arn`
-- `managed_storage_root_prefix`
-
-`stsAccessKeyId` 和 `stsAccessKeySecret` 不由 Terraform 创建，建议在 RAM 控制台单独创建一个只允许 `sts:AssumeRole` 到上述 Role 的 RAM 用户，避免 AccessKey 明文进入 Terraform state。
 
 ## 发布应用
 
