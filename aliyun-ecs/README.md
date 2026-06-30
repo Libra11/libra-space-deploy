@@ -152,6 +152,20 @@ cp env.server.example .env.server
 
 填写 Compose 本地 PostgreSQL、JWT、SMTP、微信支付等生产配置。不要把真实 `.env.server` 提交到仓库。
 
+客户端版本发布由 Admin 写数据库，安装包直传 OSS。首次部署时在 `.env.server` 配置 OSS 签名参数，后续发客户端版本只需要在 Admin 上传安装包和填写版本号，不需要重启服务端：
+
+```env
+CLIENT_RELEASE_OSS_BUCKET="<oss-bucket>"
+CLIENT_RELEASE_OSS_ENDPOINT="oss-cn-hangzhou.aliyuncs.com"
+CLIENT_RELEASE_OSS_ACCESS_KEY_ID="<oss-access-key-id>"
+CLIENT_RELEASE_OSS_ACCESS_KEY_SECRET="<oss-access-key-secret>"
+CLIENT_RELEASE_OSS_PUBLIC_BASE_URL="https://downloads.example.com"
+CLIENT_RELEASE_OSS_PREFIX="client-releases"
+CLIENT_RELEASE_OSS_UPLOAD_EXPIRES_SECONDS="900"
+```
+
+OSS Bucket 需要允许 Admin 站点来源发起浏览器直传，CORS 至少包含：`PUT`、`GET`、`HEAD` 方法，允许 `content-type` 请求头，并暴露 `ETag`、`x-oss-request-id` 响应头。
+
 准备 PostgreSQL 运行变量：
 
 ```bash
