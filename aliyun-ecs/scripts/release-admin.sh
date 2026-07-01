@@ -24,7 +24,7 @@ fi
 
 VERSION="${VERSION:-$(date +%Y%m%d-%H%M%S)}"
 ACR_REGISTRY="${ACR_REGISTRY:-registry.cn-heyuan.aliyuncs.com}"
-ACR_NAMESPACE="${ACR_NAMESPACE:-knora-one-prod}"
+ACR_NAMESPACE="${ACR_NAMESPACE:-libra-space-prod}"
 ECS_REGION="${ECS_REGION:-${ALICLOUD_REGION:-cn-beijing}}"
 ECS_INSTANCE_ID="${ECS_INSTANCE_ID:-i-2ze8uighngo391nxk3ix}"
 NODE_IMAGE="${NODE_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}"

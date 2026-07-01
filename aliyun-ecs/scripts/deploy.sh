@@ -19,12 +19,12 @@ fi
 cd "$deploy_dir"
 
 docker compose -f "$compose_file" pull
-docker compose -f "$compose_file" up --no-deps --abort-on-container-exit migrate
+docker compose -f "$compose_file" up --abort-on-container-exit migrate
 docker compose -f "$compose_file" up -d server admin proxy
 docker compose -f "$compose_file" ps
 
 for _ in $(seq 1 12); do
-  if curl -fsS http://127.0.0.1/api/health >/dev/null 2>&1; then
+  if docker compose -f "$compose_file" exec -T server wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
     if [ -x "$deploy_dir/scripts/prune-local-images.sh" ]; then
       "$deploy_dir/scripts/prune-local-images.sh"
     else
@@ -35,4 +35,4 @@ for _ in $(seq 1 12); do
   sleep 5
 done
 
-curl -fsS http://127.0.0.1/api/health >/dev/null
+docker compose -f "$compose_file" exec -T server wget -qO- http://127.0.0.1:3000/api/health >/dev/null

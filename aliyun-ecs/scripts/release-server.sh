@@ -24,7 +24,7 @@ fi
 
 VERSION="${VERSION:-$(date +%Y%m%d-%H%M%S)}"
 ACR_REGISTRY="${ACR_REGISTRY:-registry.cn-heyuan.aliyuncs.com}"
-ACR_NAMESPACE="${ACR_NAMESPACE:-knora-one-prod}"
+ACR_NAMESPACE="${ACR_NAMESPACE:-libra-space-prod}"
 ECS_REGION="${ECS_REGION:-${ALICLOUD_REGION:-cn-beijing}}"
 ECS_INSTANCE_ID="${ECS_INSTANCE_ID:-i-2ze8uighngo391nxk3ix}"
 NODE_IMAGE="${NODE_IMAGE:-docker.m.daocloud.io/library/node:22-alpine}"
@@ -73,7 +73,7 @@ if [ -z "\$admin_image" ]; then
 fi
 printf 'SERVER_IMAGE=%s\nADMIN_IMAGE=%s\n' '$server_image' "\$admin_image" > .env
 PRUNE_LOCAL_IMAGES=false ./scripts/deploy.sh
-curl -fsS http://127.0.0.1/api/health >/dev/null
+docker compose -f docker-compose.prod.yml exec -T server wget -qO- http://127.0.0.1:3000/api/health >/dev/null
 prune_local_images
 docker compose -f docker-compose.prod.yml ps
 SCRIPT
