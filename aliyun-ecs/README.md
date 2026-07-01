@@ -162,9 +162,10 @@ CLIENT_RELEASE_OSS_ACCESS_KEY_SECRET="<oss-access-key-secret>"
 CLIENT_RELEASE_OSS_PUBLIC_BASE_URL="https://downloads.example.com"
 CLIENT_RELEASE_OSS_PREFIX="client-releases"
 CLIENT_RELEASE_OSS_UPLOAD_EXPIRES_SECONDS="900"
+CLIENT_RELEASE_OSS_DOWNLOAD_EXPIRES_SECONDS="86400"
 ```
 
-OSS Bucket 需要允许 Admin 站点来源发起浏览器直传，CORS 至少包含：`PUT`、`GET`、`HEAD` 方法，允许 `content-type` 请求头，并暴露 `ETag`、`x-oss-request-id` 响应头。
+OSS Bucket 需要允许 Admin 站点来源发起浏览器直传，CORS 至少包含：`PUT`、`GET`、`HEAD` 方法，允许 `content-type` 请求头，并暴露 `ETag`、`x-oss-request-id` 响应头。客户端发布安装包保持私有，客户端下载地址由服务端按需签名生成。
 
 准备 PostgreSQL 运行变量：
 
