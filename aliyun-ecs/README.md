@@ -197,13 +197,21 @@ chmod 600 .env.postgres-backup
 
 ```bash
 mkdir -p certs/wechat
-chmod 700 certs/wechat
+chown root:1000 certs/wechat
+chmod 750 certs/wechat
 ```
 
 把微信商户平台下载的 `apiclient_key.pem` 放到：
 
 ```text
 deploy/aliyun-ecs/certs/wechat/apiclient_key.pem
+```
+
+限制商户私钥权限，同时允许生产镜像中的 `node` 用户组只读访问：
+
+```bash
+chown root:1000 certs/wechat/apiclient_key.pem
+chmod 640 certs/wechat/apiclient_key.pem
 ```
 
 对应 `.env.server` 里保持容器内路径：
@@ -217,6 +225,38 @@ BILLING_WECHAT_PAY_MERCHANT_PRIVATE_KEY_PATH="/app/certs/wechat/apiclient_key.pe
 ```env
 BILLING_WECHAT_PAY_NOTIFY_URL="https://space.penlibra.xin/api/billing/webhooks/wechat"
 ```
+
+支付宝电脑网站支付使用应用私钥签署 `alipay.trade.page.pay` 请求。将与开放平台应用公钥配套的应用私钥保存到 ECS，并限制读取权限：
+
+```bash
+mkdir -p certs/alipay
+chown root:1000 certs/alipay
+chmod 750 certs/alipay
+```
+
+把支付宝密钥工具生成的应用私钥和开放平台下载的支付宝公钥分别保存为 `certs/alipay/app_private_key.txt`、`certs/alipay/alipay_public_key.txt`，然后限制读取权限：
+
+```bash
+chown root:1000 certs/alipay/app_private_key.txt certs/alipay/alipay_public_key.txt
+chmod 640 certs/alipay/app_private_key.txt certs/alipay/alipay_public_key.txt
+```
+
+生产镜像以 `node` 用户（UID/GID `1000`）运行；上述权限允许容器只读访问密钥，同时仍仅允许宿主机 `root` 修改文件。
+
+生产配置至少包括：
+
+```bash
+BILLING_ALIPAY_PAGE_PAY_MODE="live"
+BILLING_ALIPAY_WEBHOOK_MODE="live"
+BILLING_ALIPAY_APP_ID="2021006171607317"
+BILLING_ALIPAY_GATEWAY_URL="https://openapi.alipay.com/gateway.do"
+BILLING_ALIPAY_APP_PRIVATE_KEY_PATH="/app/certs/alipay/app_private_key.txt"
+BILLING_ALIPAY_PUBLIC_KEY_PATH="/app/certs/alipay/alipay_public_key.txt"
+BILLING_ALIPAY_NOTIFY_URL="https://space.penlibra.xin/api/billing/webhooks/alipay"
+BILLING_ALIPAY_RETURN_URL="https://knora.penlibra.xin/checkout/success.html"
+```
+
+公钥文件必须使用开放平台下载的“支付宝公钥”，不能使用“应用公钥”。平台工具输出的原生 Base64 文件和带 PEM 头的文件都可直接读取。正式环境使用 `https://openapi.alipay.com/gateway.do`；沙箱联调时将该配置改为 `https://openapi-sandbox.dl.alipaydev.com/gateway.do`，并同步切换沙箱 APPID 与对应密钥。异步通知地址会随每笔下单请求传入。
 
 执行发布：
 

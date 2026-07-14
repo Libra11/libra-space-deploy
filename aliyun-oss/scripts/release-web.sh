@@ -57,6 +57,15 @@ fi
 require_env ALICLOUD_ACCESS_KEY
 require_env ALICLOUD_SECRET_KEY
 require_env OSS_BUCKET
+require_env NEXT_PUBLIC_API_BASE_URL
+
+case "$NEXT_PUBLIC_API_BASE_URL" in
+  https://*) ;;
+  *)
+    echo "NEXT_PUBLIC_API_BASE_URL must use HTTPS for production releases." >&2
+    exit 1
+    ;;
+esac
 
 if [ -z "$OSS_PREFIX" ] && ! is_true "$ALLOW_OSS_ROOT_DEPLOY"; then
   echo "Refusing to sync OSS bucket root with --delete." >&2
