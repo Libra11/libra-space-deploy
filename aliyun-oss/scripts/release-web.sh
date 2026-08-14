@@ -120,6 +120,19 @@ echo "Removing OSS directory marker objects."
   done
 )
 
+echo "Publishing extensionless route aliases."
+find "$out_dir" -type f -name "*.html" ! -name "index.html" ! -name "404.html" | while IFS= read -r html_file; do
+  relative_path="${html_file#$out_dir/}"
+  route_alias="${relative_path%.html}"
+  "$aliyun_cli" oss cp "$html_file" "$oss_url/$route_alias" \
+    --force \
+    --region "$OSS_REGION" \
+    --endpoint "$OSS_ENDPOINT" \
+    --access-key-id "$ALICLOUD_ACCESS_KEY" \
+    --access-key-secret "$ALICLOUD_SECRET_KEY" \
+    --meta "Cache-Control:no-cache#Content-Type:text/html; charset=utf-8"
+done
+
 echo "Setting immutable cache metadata for Next.js static assets."
 "$aliyun_cli" oss set-meta "$static_url" \
   "Cache-Control:public,max-age=31536000,immutable" \
