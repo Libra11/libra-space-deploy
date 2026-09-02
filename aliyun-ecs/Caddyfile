@@ -1,6 +1,13 @@
 space.penlibra.xin {
     encode gzip
 
-    reverse_proxy /api/* server:3000
+    handle /api/* {
+        header {
+            Cache-Control "no-store, private"
+            CDN-Cache-Control "no-store"
+            Surrogate-Control "no-store"
+        }
+        reverse_proxy server:3000
+    }
     reverse_proxy admin:80
 }

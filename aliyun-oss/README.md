@@ -24,6 +24,19 @@ OSS_REGION="cn-beijing"
 OSS_ENDPOINT="oss-cn-beijing.aliyuncs.com"
 ```
 
+海外版构建还需要提供 Paddle 公共令牌和法定经营者信息：
+
+```env
+NEXT_PUBLIC_API_BASE_URL="https://space.penlibra.xin"
+NEXT_PUBLIC_PADDLE_ENV="sandbox"
+NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="<paddle-client-side-token>"
+NEXT_PUBLIC_LEGAL_ENTITY_NAME="<营业执照完整名称>"
+NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS="<登记地址>"
+NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL="support@knora.one"
+```
+
+Paddle 审核完成前保持 Sandbox；生产上线时同时把官网改为 `production` Client-side Token，并在服务端启用生产 Paddle。法定经营者字段会同时出现在中英文条款和隐私页面，不能使用品牌名代替营业执照主体名。
+
 如果官网部署到 Bucket 根目录，设置：
 
 ```env
@@ -60,6 +73,8 @@ npm run deploy:oss
 - `OSS_PREFIX=website`：部署到 Bucket 子目录，适合已有 CDN 回源规则或多站点复用 Bucket。
 
 ## HTTPS 证书
+
+正式全球发布建议由 `aliyun-ecs/terraform/edge.tf` 把官网 OSS 和 API 一并接入 ESA。官网 HTML 保持 `no-cache`，`_next/static/` 保持一年 immutable；API 和 webhook 由 ESA 规则及源站响应头双重禁止缓存。
 
 `knora.penlibra.xin` 当前使用 Let's Encrypt 免费证书，并通过 OSS CNAME 证书配置启用 HTTPS。证书和私钥保存在本地忽略目录：
 

@@ -58,11 +58,24 @@ require_env ALICLOUD_ACCESS_KEY
 require_env ALICLOUD_SECRET_KEY
 require_env OSS_BUCKET
 require_env NEXT_PUBLIC_API_BASE_URL
+require_env NEXT_PUBLIC_PADDLE_ENV
+require_env NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+require_env NEXT_PUBLIC_LEGAL_ENTITY_NAME
+require_env NEXT_PUBLIC_LEGAL_ENTITY_ADDRESS
+require_env NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL
 
 case "$NEXT_PUBLIC_API_BASE_URL" in
   https://*) ;;
   *)
     echo "NEXT_PUBLIC_API_BASE_URL must use HTTPS for production releases." >&2
+    exit 1
+    ;;
+esac
+
+case "$NEXT_PUBLIC_PADDLE_ENV" in
+  sandbox|production) ;;
+  *)
+    echo "NEXT_PUBLIC_PADDLE_ENV must be sandbox or production." >&2
     exit 1
     ;;
 esac

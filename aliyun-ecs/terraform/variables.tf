@@ -122,3 +122,65 @@ variable "create_acr" {
   description = "Create ACR namespace and repositories. Set to false until Container Registry is activated for the account."
   default     = true
 }
+
+variable "enable_esa" {
+  type        = bool
+  description = "Create global ESA records and the API no-cache rule after an ESA plan is available."
+  default     = false
+}
+
+variable "esa_instance_id" {
+  type        = string
+  description = "Existing ESA plan instance ID. Required when enable_esa is true."
+  default     = ""
+
+  validation {
+    condition     = !var.enable_esa || var.esa_instance_id != ""
+    error_message = "esa_instance_id is required when enable_esa is true."
+  }
+}
+
+variable "esa_origin_header_token" {
+  type        = string
+  description = "Shared secret used to authenticate ESA-provided client IP headers at the API origin."
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      !var.enable_esa ||
+      (length(var.esa_origin_header_token) >= 32 &&
+      !strcontains(lower(var.esa_origin_header_token), "replace-with"))
+    )
+    error_message = "esa_origin_header_token must be a production random secret of at least 32 characters when enable_esa is true."
+  }
+}
+
+variable "esa_site_name" {
+  type        = string
+  description = "Apex domain managed by ESA."
+  default     = "penlibra.xin"
+}
+
+variable "website_domain" {
+  type        = string
+  description = "Global website hostname accelerated by ESA."
+  default     = "knora.penlibra.xin"
+}
+
+variable "website_oss_origin" {
+  type        = string
+  description = "Public OSS origin hostname, for example bucket.oss-cn-beijing.aliyuncs.com."
+  default     = ""
+
+  validation {
+    condition     = !var.enable_esa || var.website_oss_origin != ""
+    error_message = "website_oss_origin is required when enable_esa is true."
+  }
+}
+
+variable "api_domain" {
+  type        = string
+  description = "Dynamic API hostname accelerated by ESA."
+  default     = "space.penlibra.xin"
+}

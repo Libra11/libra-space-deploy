@@ -272,6 +272,39 @@ curl -fsS http://127.0.0.1/api/health
 
 ## 数据库升级原则
 
+### 海外支付迁移顺序
+
+本次区域报价迁移必须在维护窗口执行，并保留迁移前后的统计输出：
+
+```bash
+cd "/opt/libra-space"
+./scripts/backup-postgres-to-oss.sh
+docker compose exec -T postgres psql -U libra -d libra_space \
+  < scripts/global-payments-preflight.sql | tee global-payments-preflight.txt
+docker compose run --rm migrate
+docker compose exec -T postgres psql -U libra -d libra_space \
+  < scripts/global-payments-postcheck.sql | tee global-payments-postcheck.txt
+```
+
+预检统计用户、订单、已支付订单、交易和有效授权；迁移会把现有套餐报价、渠道和订单回填为 `CN`，不修改历史订单金额与授权状态。中国区新订单正式价为 ¥128、早鸟价为 ¥68。确认前后数量一致且 `orders_without_offer=0` 后再启动新服务端。
+
+Paddle 上线分三步：正式环境先保持 `BILLING_PADDLE_ENABLED=false` 和 `BILLING_PADDLE_PUBLIC_ENABLED=false`；在本地或隔离测试环境中使用 `BILLING_PADDLE_ENABLED=true`、`BILLING_PADDLE_PUBLIC_ENABLED=true`、`PADDLE_ENV=sandbox` 完成 Sandbox 全流程，同时完成正式域名审核。审核通过后先把正式环境切到 `PADDLE_ENV=production`、替换生产密钥并启用 `BILLING_PADDLE_ENABLED`；只有 ESA 已向 API 注入经过共享密钥保护的 `X-Knora-Country-Code: ip.geoip.country` 后，才启用 `BILLING_PADDLE_PUBLIC_ENABLED`。Webhook Endpoint 使用 `https://space.penlibra.xin/api/billing/webhooks/paddle`，至少订阅 `transaction.completed` 和 `adjustment.updated`。
+
+### ESA 全球加速
+
+Terraform 的 ESA 资源默认关闭，避免在没有套餐实例和 DNS 变更窗口时产生费用或切流。先购买/准备 ESA 套餐实例，填写 `terraform/.env.aliyun` 中的 `TF_VAR_esa_*` 与 OSS 源站，再将 `TF_VAR_enable_esa=true` 后执行 `infra-plan.sh`。
+
+`TF_VAR_esa_origin_header_token` 必须使用至少 32 字符的随机密钥，并同步写入服务端 `.env.server` 的 `ESA_ORIGIN_HEADER_TOKEN`。ESA 会覆盖写入 `True-Client-IP`，并携带该共享密钥；服务端仅在密钥匹配且 IP 格式有效时重建代理链，保证登录、注册和验证码接口按真实访客 IP 限流。不要在 ESA 规则生效前单独开启服务端密钥配置。
+
+配置会创建：
+
+- `knora.penlibra.xin`：OSS 静态官网，`biz_name=web`，全球加速。
+- `space.penlibra.xin`：ECS 动态 API，`biz_name=api`，全球动态加速。
+- API 主机全量 `bypass_all`、浏览器和边缘均 `no_cache`；因此 `/api/**` 与所有支付 webhook 不会被 ESA 缓存。
+- API 回源请求覆盖写入 `True-Client-IP` 和源站鉴别密钥，直连请求伪造的客户端 IP 不会被服务端信任。
+
+源站 Nest、Caddy 和 Nginx 也都写入 `Cache-Control: no-store`、`CDN-Cache-Control: no-store`、`Surrogate-Control: no-store`，形成源站与边缘双重保护。首次 apply 后按 ESA 输出完成 CNAME/证书验证，再从境外节点切流；不要同时在控制台和 Terraform 管理同一条 ESA 记录。
+
 - 生产环境只执行 `prisma migrate deploy`。
 - 每次迁移前先执行 `./scripts/backup-postgres-to-oss.sh`，确认 OSS 备份可恢复。
 - 禁止多个 server 副本在启动时并发执行迁移。

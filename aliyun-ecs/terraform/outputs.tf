@@ -42,3 +42,18 @@ output "local_postgres_database_url_template" {
   description = "Compose-local PostgreSQL DATABASE_URL template. Replace <password> with .env.postgres POSTGRES_PASSWORD."
   value       = "postgresql://libra:<password>@postgres:5432/libra_space?schema=public"
 }
+
+output "esa_site_id" {
+  description = "ESA site ID when global acceleration is enabled."
+  value       = try(alicloud_esa_site.public[0].id, "")
+}
+
+output "esa_website_record" {
+  description = "ESA website record ID when global acceleration is enabled."
+  value       = try(alicloud_esa_record.website[0].id, "")
+}
+
+output "esa_api_record" {
+  description = "ESA API record ID when global acceleration is enabled."
+  value       = try(alicloud_esa_record.api[0].id, "")
+}
